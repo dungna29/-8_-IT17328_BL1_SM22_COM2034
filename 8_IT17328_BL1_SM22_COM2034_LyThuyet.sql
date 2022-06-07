@@ -559,6 +559,153 @@ END
 	DELETE FROM HoaDonChiTiet WHERE IdHoaDon IN(SELECT Id FROM deleted)
 	DELETE FROM HoaDon WHERE Id IN(SELECT Id FROM deleted)
  END
-
-
  DELETE FROM HoaDon WHERE Id = 1
+
+ /*
+HÀM NGƯỜI DÙNG TỰ ĐỊNH NGHĨA
+❑Là một đối tượng CSDL chứa các câu lệnh SQL,
+được biên dịch sẵn và lưu trữ trong CSDL.
+❑Thực hiện một hành động như các tính toán
+phức tạp và trả về kết quả là một giá trị.
+❑Giá trị trả về có thể là:
+	❖Giá trị vô hướng
+	❖Một bảng
+SO SÁNH HÀM VỚI THỦ TỤC
+❑Tương tự như Stored Procedure
+❖Là một đối tượng CSDL chứa các câu lệnh SQL, được
+biên dịch sẵn và lưu trữ trong CSDL.
+❑Khác với Stored Procedure
+➢Các hàm luôn phải trả về một giá trị, sử dụng câu lệnh
+RETURN
+➢Hàm không có tham số đầu ra
+➢Không được chứa các câu lệnh INSERT, UPDATE, DELETE
+một bảng hoặc view đang tồn tại trong CSDL
+➢Có thể tạo bảng, bảng tạm, biến bảng và thực hiện các câu
+lệnh INSERT, UPDATE, DELETE trên các bảng, bảng tạm,
+biến bảng vừa tạo trong thân hàm
+Hàm giá trị vô hướng: Trả về giá trị đơn của mọi kiểu dữ liệu
+Hàm giá trị bảng đơn giản: Trả về bảng, là kết quả của một câu SELECT đơn.
+Hàm giá trị bảng nhiều câu lệnh: Trả về bảng là kêt quả của nhiều câu lệnh
+*/
+
+-- Ví dụ 1: Viết 1 Hàm tính tuổi người dùng khi họ nhập vào năm sinh
+GO
+CREATE FUNCTION F_TinhTuoi(@Ns Int)
+RETURNS INT -- Phải sử dụng RETURNS để định nghĩa kiểu trả về của hàm
+AS
+BEGIN
+	RETURN YEAR(GETDATE()) - @Ns
+END
+-- Khi sử dụng hàm bắt buộc phải có từ khóa dbo. tên hàm
+PRINT dbo.F_TinhTuoi(2000)
+
+-- Ứng dụng hàm tính tuổi vào trong câu select
+SELECT Ma,Ten,NgaySinh,dbo.F_TinhTuoi(YEAR(NgaySinh)) FROM NhanVien
+
+-- Ví dụ 2: Hàm đếm số lượng nhân viên theo giới tính
+GO
+ALTER FUNCTION F_SoLuongNhanVien(@GT NVARCHAR(10))
+RETURNS INT
+AS 
+BEGIN
+	RETURN (SELECT COUNT(Ma) FROM NhanVien WHERE GioiTinh = @GT)
+END
+
+PRINT dbo.F_SoLuongNhanVien(N'Nữ')
+
+-- Ví dụ 3: Hàm trả vè 1 bảng
+GO
+CREATE FUNCTION F_GetAllNV()
+RETURNS TABLE
+AS RETURN SELECT * FROM NhanVien
+
+-- Khi mà hàm trả về 1 bảng thì sẽ dụng SELECT có thể sử dụng dbo. hoặc không
+SELECT * FROM F_GetAllNV()
+
+-- Ví dụ 4: Hàm trả ra các giá trị đa câu lệnh
+CREATE FUNCTION F_GETALLNV_BY_GT(@GT NVARCHAR(10)) 
+RETURNS @TBL_NhanVien TABLE(TenNV NVARCHAR(30),MaNV VARCHAR(20),GT NVARCHAR(10))
+AS
+BEGIN
+	IF @GT IS NULL
+	BEGIN
+		INSERT INTO @TBL_NhanVien
+		SELECT Ten,Ma,GioiTinh
+		FROM NhanVien
+		-- PRINT N'Vì giá trị giới tính truyền vào là NULL nên sẽ SELECT All'
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @TBL_NhanVien
+		SELECT Ten,Ma,GioiTinh
+		FROM NhanVien WHERE GioiTinh = @GT
+	END
+	RETURN
+END
+/* Xóa/Sửa Nội Dung của một hàm chỉ cần dùng DROP/ALTER*/
+SELECT * FROM F_GETALLNV_BY_GT(N'Nữ')
+
+
+/*
+VIEW là gì:
+❑Che dấu và bảo mật dữ liệu
+❖Không cho phép người dùng xem toàn bộ dữ liệu
+chứa trong các bảng.
+❖Bằng cách chỉ định các cột trong View, các dữ liệu
+quan trọng chứa trong một số cột của bảng có thể
+được che dấu
+❑Hiển thị dữ liệu một cách tùy biến
+❖Với mỗi người dùng khác nhau, có thể tạo các View
+khác nhau phù hợp với nhu cầu xem thông tin của
+từng người dùng
+❑Lưu trữ câu lệnh truy vấn phức tạp và thường
+xuyên sử dụng.
+❑Thực thi nhanh hơn các câu lệnh truy vấn do đã
+được biên dịch sẵn
+❑Đảm bảo tính toàn vẹn dữ liệu
+❖Khi sử dụng View để cập nhật dữ liệu trong các bảng
+cơ sở, SQL Server sẽ tự động kiểm tra các ràng buộc
+toàn vẹn trên các bản
+❑Tên view không được trùng với tên bảng hoặc
+view đã tồn tại
+❑Câu lệnh SELECT tạo VIEW
+❖Không được chứa mệnh đề INTO, hoặc ORDER BY trừ
+khi chứa từ khóa TOP
+❑Đặt tên cột
+❖Cột chứa giá trị được tính toán từ nhiều cột khác phải
+được đặt tên
+❖Nếu cột không được đặt tên, tên cột sẽ được mặc
+định giống tên cột của bảng cơ sở
+*/
+-- Ví dụ 1:
+GO
+CREATE VIEW View_DSNVNu
+AS
+SELECT * FROM NhanVien WHERE GioiTinh = N'Nữ'
+
+/*PHÂN LOẠI VIEW
+❑VIEW chỉ đọc (read-only view)
+❖View này chỉ dùng để xem dữ liệu
+❑VIEW có thể cập nhật (updatable view)
+❖Xem dữ liệu
+❖Có thể sử dụng câu lệnh INSERT, UPDATE, DELETE để
+cập nhật dữ liệu trong các bảng cơ sở qua View
+Yêu cầu: Câu lệnh select không được chứa
+	❖Mệnh đề DISTINCT hoặc TOP
+	❖Một hàm tổng hợp (Aggregate function)
+	❖Một giá trị được tính toán
+	❖Mệnh đề GROUP BY và HAVING
+	❖Toán tử UNION
+	❖Nếu câu lệnh tạo View vi phạm một trong số điều
+	kiện trên. VIEW được tạo ra là VIEW chỉ đọc
+*/
+
+SELECT * FROM View_DSNVNu  WHERE IdCH = 1
+-- View 1:
+/*
+View 1: Tạo ra 1 View báo cáo doanh số sản phẩm bao gồm các cột thông tin sau để báo cáo cho giám đốc 
+của đại lý sấp xếp giảm dần theo Số lượng đã bán:
+[Mã Sản Phẩm] [Tên Sản Phẩm] [Mã Dòng Sản phẩm] [Tên Dòng Sản phẩm] [Số Lượng Tồn Kho] [Số Lượng Đã Bán]
+ [Số tiền lãi] 
+*/
+-- Store: Truyền vào mã cửa hàng trả ra được tổng tiền hàng đã bán ra trên cửa hàng đó.
